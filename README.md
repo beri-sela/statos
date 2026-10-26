@@ -23,7 +23,9 @@ Statos is a browser-based editor for writing choral music in **tonic sol-fa** an
 - **Rectangles where you want them**: start a new box at any bar (a refrain, a verse, a coda) with its own heading, draw each row of bars as its own rectangle, and add **text blocks** for verses sung to the same melody.
 - **Phones and tablets**: a tab bar switches between *Details*, *Sol-fa* and *Staff*; menus open as bottom sheets; controls are sized for touch. On desktop, buttons show tooltips.
 - **Printing**: *Print* gives just the music.
-- **Help** (toolbar or F1): searchable lessons from a first score to marks, boxes, playback, MusicXML and phones, plus a cheat sheet and shortcuts.
+- **Welcome wizard**: a first-time visitor (or anyone with no scores) starts at a welcome screen that offers a new score, importing a file, opening an example, or the lessons.
+- **Help page** (`#/help`, toolbar or F1): searchable lessons from a first score to marks, boxes, playback, MusicXML and phones, plus a cheat sheet and shortcuts. Each lesson has its own link, e.g. `#/help/lyrics`.
+- **About, Privacy and Terms pages** (`#/about`, `#/privacy`, `#/terms`). Statos collects no data: no accounts, cookies, analytics or third-party requests.
 - **Desktop layout**: the side panel and the music scroll separately; drag the divider to resize the panel or hide it with ⇤; *Both* shows sol-fa and staff side by side; the speed (♩ =) sits next to Play.
 - A **wizard** for starting a new score (key, time signature, voices, layout) or importing one.
 

@@ -24,16 +24,22 @@ export function blankScore(): ScoreDoc {
   };
 }
 
-/** Loads saved scores; on first run (or if storage is unavailable) starts with the examples. */
+/** Loads saved scores. A first-time visitor has none and is greeted by the welcome wizard. */
 export function loadScores(): ScoreDoc[] {
   try {
     const raw = localStorage.getItem(KEY) ?? LEGACY_KEYS.map(k => localStorage.getItem(k)).find(Boolean) ?? null;
     if (raw) {
       const list = JSON.parse(raw) as ScoreDoc[];
-      if (Array.isArray(list) && list.length) return list;
+      if (Array.isArray(list)) return list;
     }
   } catch { /* storage blocked or corrupt: fall through */ }
-  return EXAMPLES.map(s => ({ ...s, updatedAt: Date.now() }));
+  return [];
+}
+
+/** A fresh copy of a sample score, so it can be opened (and changed) more than once. */
+export function exampleCopy(id: string): ScoreDoc | null {
+  const ex = EXAMPLES.find(e => e.id === id);
+  return ex ? { ...structuredClone(ex), id: newId(), updatedAt: Date.now() } : null;
 }
 
 export function saveScores(list: ScoreDoc[]): boolean {

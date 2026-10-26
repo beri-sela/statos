@@ -5,6 +5,8 @@ import { Menu } from './components/Menu';
 import { SolfaView, type Cursor } from './components/SolfaView';
 import { Wizard } from './components/Wizard';
 import { HelpPage } from './help/HelpPage';
+import { AboutPage, PrivacyPage, TermsPage } from './pages/InfoPages';
+import { href, navigate, useRoute } from './router';
 import { analyzeScore } from './music/analyze';
 import { setLyricBar, setPulse } from './music/edit';
 import { barTimes, parseMarks } from './music/marks';
@@ -15,6 +17,8 @@ import {
   blankScore, downloadFile, loadCurrentId, loadScores, newId, parseScoreFile, safeFileName,
   saveCurrentId, saveScores,
 } from './storage';
+
+const PLACEHOLDER = blankScore();
 
 /** Small per-browser preferences (layout, options); storage may be unavailable. */
 function pref(key: string, fallback: string): string {
@@ -34,7 +38,7 @@ export function App() {
   const [scores, setScores] = useState<ScoreDoc[]>(loadScores);
   const [currentId, setCurrentId] = useState<string>(() => {
     const id = loadCurrentId();
-    return id && scores.some(s => s.id === id) ? id : scores[0].id;
+    return id && scores.some(s => s.id === id) ? id : scores[0]?.id ?? '';
   });
   const [view, setView] = useState<View>('solfa');
   const [selectedBar, setSelectedBar] = useState<number | null>(null);
@@ -50,7 +54,7 @@ export function App() {
   const [cursor, setCursor] = useState<Cursor | null>(null);
   // Which pane is shown on phones (desktop shows editor and sheet side by side).
   const [pane, setPane] = useState<'edit' | 'sheet' | 'staff'>('sheet');
-  const [help, setHelp] = useState(false);
+  const route = useRoute();
   const [sideHidden, setSideHidden] = useState(() => pref('statos.sideHidden', '0') === '1');
   const [sideWidth, setSideWidth] = useState(() => Number(pref('statos.sideWidth', '400')) || 400);
   const player = useRef<Player | null>(null);
@@ -59,7 +63,8 @@ export function App() {
   const history = useRef({ id: '', past: [] as ScoreDoc[], future: [] as ScoreDoc[], lastPush: 0, lastKey: '' });
   const [, setHistoryVersion] = useState(0);
 
-  const score = scores.find(s => s.id === currentId) ?? scores[0];
+  // With no scores the welcome wizard is shown; the placeholder keeps the hooks below simple.
+  const score = scores.find(s => s.id === currentId) ?? scores[0] ?? PLACEHOLDER;
   const analysis = useMemo(() => analyzeScore(score), [score]);
   const visible = useMemo(() => ({ ...analysis, issues: analysis.issues.filter(i => !hidden.has(i.category)) }), [analysis, hidden]);
   const xml = useMemo(() => (view === 'solfa' ? '' : toMusicXML(score, analysis)), [view, score, analysis]);
@@ -82,7 +87,7 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName ?? '');
-      if (e.key === 'F1' || (e.key === '?' && !typing)) { e.preventDefault(); setHelp(true); }
+      if (e.key === 'F1' || (e.key === '?' && !typing)) { e.preventDefault(); navigate('help'); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -203,9 +208,8 @@ export function App() {
   const saveXml = () => downloadFile(`${safeFileName(score.title)}.musicxml`, toMusicXML(score, analysis), 'application/vnd.recordare.musicxml+xml');
   const deleteScore = () => {
     const rest = scores.filter(s => s.id !== score.id);
-    const next = rest.length ? rest : [blankScore()];
-    setScores(next);
-    switchTo(next[0].id);
+    setScores(rest);
+    switchTo(rest[0]?.id ?? '');
   };
   const showView = (v: View) => { setView(v); setPane(v === 'staff' ? 'staff' : 'sheet'); };
   const setSpeed = (n: number) => update({ ...score, bpm: Math.min(300, Math.max(20, Math.round(n) || score.bpm)) }, 'bpm');
@@ -228,6 +232,33 @@ export function App() {
       onEditPulse={editPulse} onEditLyric={editLyric} />
   );
   const staff = <Suspense fallback={<p className="hint">Loading staff notation…</p>}><StaffView xml={xml} /></Suspense>;
+
+  const noticeBox = notice && (
+    <div className={`notice ${notice.kind}`}>
+      <div>
+        {notice.text}
+        {notice.details?.length ? <ul>{notice.details.map((d, i) => <li key={i}>{d}</li>)}</ul> : null}
+      </div>
+      <button className="icon" onClick={() => setNotice(null)} aria-label="Dismiss">✕</button>
+    </div>
+  );
+
+  switch (route[0]) {
+    case 'help':
+      return <HelpPage lessonId={route[1]} onAction={a => { navigate(''); setWizard(a === 'import' ? 'import' : 'start'); }} />;
+    case 'about': return <AboutPage />;
+    case 'privacy': return <PrivacyPage />;
+    case 'terms': return <TermsPage />;
+  }
+
+  if (!scores.length) {
+    return (
+      <div className="welcome-screen">
+        {noticeBox}
+        <Wizard initialStep={wizard === 'import' ? 'import' : 'start'} onImport={onImport} onCreate={s => { addScores([s]); setWizard(null); }} />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -274,26 +305,21 @@ export function App() {
             <button className="step" onClick={() => setSpeed(score.bpm + 5)} aria-label="Faster">+</button>
           </label>
         </div>
-        <button className="act help-btn" onClick={() => setHelp(true)} data-tip="Lessons and search (F1)"><span aria-hidden>?</span>Help</button>
+        <button className="act help-btn" onClick={() => navigate('help')} data-tip="Lessons and search (F1)"><span aria-hidden>?</span>Help</button>
         <span className={`save-state ${saved ? '' : 'bad'}`} data-tip={saved ? 'Every change is saved automatically in this browser' : undefined}>
           {saved ? '✓ Saved' : 'Not saved: browser storage is unavailable'}
         </span>
       </header>
 
-      {notice && (
-        <div className={`notice ${notice.kind}`}>
-          <div>
-            {notice.text}
-            {notice.details?.length ? <ul>{notice.details.map((d, i) => <li key={i}>{d}</li>)}</ul> : null}
-          </div>
-          <button className="icon" onClick={() => setNotice(null)} aria-label="Dismiss">✕</button>
-        </div>
-      )}
+      {noticeBox}
 
       <main className={`layout${sideHidden ? ' side-hidden' : ''}`} data-pane={pane} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
         <aside className="editor-pane" aria-label="Score details">
           <Editor ref={editor} score={score} analysis={analysis} selectedBar={selectedBar}
             autoTidy={autoTidy} onAutoTidy={setAutoTidy} onChange={update} />
+          <nav className="side-links" aria-label="Site">
+            <a href={href('help')}>Help</a><a href={href('about')}>About</a><a href={href('privacy')}>Privacy</a><a href={href('terms')}>Terms</a>
+          </nav>
         </aside>
         <div className="splitter" role="separator" aria-orientation="vertical" aria-label="Resize side panel"
           onPointerDown={startResize} onDoubleClick={() => setSideWidth(400)} data-tip="Drag to resize; double-click to reset" />
@@ -315,7 +341,7 @@ export function App() {
         <button className={pane === 'edit' ? 'on' : ''} onClick={() => setPane('edit')}><span aria-hidden>✎</span>Details</button>
         <button className={pane === 'sheet' ? 'on' : ''} onClick={() => showView('solfa')}><span aria-hidden>▦</span>Sol-fa</button>
         <button className={pane === 'staff' ? 'on' : ''} onClick={() => showView('staff')}><span aria-hidden>♫</span>Staff</button>
-        <button onClick={() => setHelp(true)}><span aria-hidden>?</span>Help</button>
+        <button onClick={() => navigate('help')}><span aria-hidden>?</span>Help</button>
       </nav>
 
       {confirmDelete && (
@@ -334,10 +360,6 @@ export function App() {
       {wizard && (
         <Wizard initialStep={wizard} onClose={() => setWizard(null)} onImport={onImport}
           onCreate={s => { addScores([s]); setWizard(null); }} />
-      )}
-
-      {help && (
-        <HelpPage onClose={() => setHelp(false)} onAction={a => { setHelp(false); setWizard(a === 'import' ? 'import' : 'start'); }} />
       )}
     </div>
   );

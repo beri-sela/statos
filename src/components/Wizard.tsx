@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { DEFAULT_STYLE, type PartDoc, type ScoreDoc, type SheetStyle, type VoiceType } from '../music/types';
-import { blankScore } from '../storage';
+import { EXAMPLES } from '../examples';
+import { href } from '../router';
+import { blankScore, exampleCopy } from '../storage';
 import { KEYS, TIMES, keyLabel } from './Editor';
 
 const VOICINGS: { id: string; label: string; parts: [string, VoiceType][] }[] = [
@@ -17,11 +19,13 @@ interface Props {
   initialStep?: Step;
   onCreate: (s: ScoreDoc) => void;
   onImport: (f: File) => void;
-  onClose: () => void;
+  /** Omitted in welcome mode (no scores yet): the wizard is the whole screen and cannot be dismissed. */
+  onClose?: () => void;
 }
 
 /** Guides the user through starting a score: type a new one, or import a file. */
 export function Wizard({ initialStep = 'start', onCreate, onImport, onClose }: Props) {
+  const welcome = !onClose;
   const [step, setStep] = useState<Step>(initialStep);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
@@ -49,11 +53,18 @@ export function Wizard({ initialStep = 'start', onCreate, onImport, onClose }: P
   };
 
   return (
-    <div className="wizard-backdrop" role="dialog" aria-modal="true" aria-label="Start a score">
+    <div className={`wizard-backdrop${welcome ? ' welcome' : ''}`} role="dialog" aria-modal="true" aria-label="Start a score">
       <div className="wizard">
+        {welcome && step === 'start' && (
+          <div className="welcome-hero">
+            <img src="/favicon.svg" alt="" width={64} height={64} />
+            <h1>Welcome to Statos</h1>
+            <p>Write tonic sol-fa in the familiar boxed layout, check it as you type, hear it, and turn it into staff notation. Free, no account, and your music stays on your device.</p>
+          </div>
+        )}
         <div className="wizard-head">
-          <h2>{step === 'start' ? 'Start a score' : step === 'details' ? 'New score' : 'Import a score'}</h2>
-          <button className="icon" onClick={onClose} aria-label="Close">✕</button>
+          <h2>{step === 'start' ? (welcome ? 'How would you like to start?' : 'Start a score') : step === 'details' ? 'New score' : 'Import a score'}</h2>
+          {onClose && <button className="icon" onClick={onClose} aria-label="Close">✕</button>}
         </div>
 
         {step === 'start' && (
@@ -64,10 +75,28 @@ export function Wizard({ initialStep = 'start', onCreate, onImport, onClose }: P
             <button className="choice" onClick={() => setStep('import')}>
               <b>Import a file</b><span>MusicXML from MuseScore, Sibelius, Finale or Dorico (converted to sol-fa), or a saved Statos file.</span>
             </button>
+            <div className="choice examples">
+              <b>Open an example</b><span>See how a finished score looks, then change it or play it.</span>
+              <div className="example-list">
+                {EXAMPLES.map(ex => (
+                  <button key={ex.id} onClick={() => { const c = exampleCopy(ex.id); if (c) onCreate(c); }}>
+                    {ex.title}<small>{ex.composer.replace(/^'Messiah' /, '')}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <a className="choice" href={href('help/first-score')}>
+              <b>Learn how it works</b><span>Short lessons: your first score in two minutes, typing notes, lyrics, marks and more.</span>
+            </a>
             <button className="choice" disabled>
               <b>Read a scan or photo</b><span>Coming with the Statos browser extension (AI reading of PDFs and images).</span>
             </button>
           </div>
+        )}
+        {welcome && step === 'start' && (
+          <p className="welcome-links">
+            <a href={href('about')}>About</a> · <a href={href('help')}>Help</a> · <a href={href('privacy')}>Privacy</a> · <a href={href('terms')}>Terms</a>
+          </p>
         )}
 
         {step === 'details' && (
@@ -137,7 +166,7 @@ export function Wizard({ initialStep = 'start', onCreate, onImport, onClose }: P
             <p>Choose a <b>MusicXML</b> file (<code>.musicxml</code> or <code>.xml</code>) exported from a notation program, or a <b>Statos</b> file (<code>.json</code>).</p>
             <p className="hint">In MuseScore: File → Export → MusicXML, and choose <i>uncompressed</i>. Each staff voice becomes a sol-fa part; check the result against the original.</p>
             <input ref={file} type="file" accept=".json,.musicxml,.xml,.mxl"
-              onChange={e => { const f = e.target.files?.[0]; if (f) { onImport(f); onClose(); } }} />
+              onChange={e => { const f = e.target.files?.[0]; if (f) { onImport(f); onClose?.(); } }} />
             <div className="wizard-foot">
               <button onClick={() => setStep('start')}>Back</button>
             </div>
