@@ -31,7 +31,17 @@ Statos is a browser-based editor for writing choral music in **tonic sol-fa** an
 
 Two sample scores are included (*Mimọ* by Alex Ugwu and *Alleluia Amen* by Ndem Brian, typed from handwritten manuscripts).
 
-## Getting started
+## Download and run it on your computer
+
+No installation or web server needed:
+
+1. Download **Statos-vX.Y.Z-offline.zip** from the [latest release](https://github.com/beri-sela/statos/releases/latest).
+2. Unzip it.
+3. Double-click **Statos.html**. It opens in your browser and works without an internet connection.
+
+Scores are saved in that browser on that computer; keep `Statos.html` in the same folder, and use **Save** for backup files.
+
+## Getting started (development)
 
 Requires [Node.js](https://nodejs.org/) 18 or later.
 
@@ -50,6 +60,15 @@ Then open the address it prints (normally http://localhost:5173).
 | `npm run preview` | Serve the built site locally |
 
 The built `dist/` folder is a static site: it can be hosted anywhere (GitHub Pages, Netlify, any web server).
+
+`npm run build:offline` builds the whole app into one self-contained file, `release/statos/index.html`, that works when opened straight from disk (`file://`).
+
+### Making a release
+
+1. Set the new version in `package.json` (e.g. `0.2.0`) and commit.
+2. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
+
+The *Release* workflow (`.github/workflows/release.yml`) then runs the tests, builds the offline file, and publishes a GitHub release with `Statos-v0.2.0-offline.zip` (the HTML file plus `packaging/README.txt`).
 
 ## Typing sol-fa
 

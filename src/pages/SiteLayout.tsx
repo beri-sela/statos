@@ -1,3 +1,4 @@
+import logo from '../assets/logo.svg';
 import type { ReactNode } from 'react';
 import { href } from '../router';
 
@@ -10,7 +11,7 @@ export function SiteLayout({ current, children, wide = false }: { current: strin
   return (
     <div className="site">
       <header className="site-head">
-        <a className="brand" href={href('')} aria-label="Statos editor"><img src="/favicon.svg" alt="" width={26} height={26} />Statos</a>
+        <a className="brand" href={href('')} aria-label="Statos editor"><img src={logo} alt="" width={26} height={26} />Statos</a>
         <nav className="site-nav" aria-label="Pages">
           {LINKS.map(([path, label]) => (
             <a key={path} href={href(path)} aria-current={current === path ? 'page' : undefined}>{label}</a>

@@ -1,3 +1,4 @@
+import logo from './assets/logo.svg';
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Editor, type EditorHandle } from './components/Editor';
 import { IssueList } from './components/IssueList';
@@ -265,7 +266,7 @@ export function App() {
       <header className="toolbar">
         <button className="icon-btn panel-toggle desktop-only" onClick={() => setSideHidden(h => !h)} aria-pressed={!sideHidden}
           data-tip={sideHidden ? 'Show the side panel' : 'Hide the side panel'} aria-label="Toggle side panel">{sideHidden ? '⇥' : '⇤'}</button>
-        <span className="brand"><img src="/favicon.svg" alt="" width={24} height={24} />Statos</span>
+        <span className="brand"><img src={logo} alt="" width={24} height={24} />Statos</span>
         <select className="score-pick" value={score.id} onChange={e => switchTo(e.target.value)} aria-label="Open score" data-tip="Switch score">
           {scores.map(s => <option key={s.id} value={s.id}>{s.title || 'Untitled'}</option>)}
         </select>

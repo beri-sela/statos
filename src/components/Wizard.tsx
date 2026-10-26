@@ -1,3 +1,4 @@
+import logo from '../assets/logo.svg';
 import { useRef, useState } from 'react';
 import { DEFAULT_STYLE, type PartDoc, type ScoreDoc, type SheetStyle, type VoiceType } from '../music/types';
 import { EXAMPLES } from '../examples';
@@ -57,7 +58,7 @@ export function Wizard({ initialStep = 'start', onCreate, onImport, onClose }: P
       <div className="wizard">
         {welcome && step === 'start' && (
           <div className="welcome-hero">
-            <img src="/favicon.svg" alt="" width={64} height={64} />
+            <img src={logo} alt="" width={64} height={64} />
             <h1>Welcome to Statos</h1>
             <p>Write tonic sol-fa in the familiar boxed layout, check it as you type, hear it, and turn it into staff notation. Free, no account, and your music stays on your device.</p>
           </div>

@@ -1,0 +1,54 @@
+# Publishes a GitHub release when a version tag (e.g. v0.1.0) is pushed.
+# The release contains Statos as one self-contained HTML file that works when opened from disk.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Check the tag matches package.json
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $version" >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:offline
+
+      - name: Package the offline zip
+        run: |
+          mkdir -p pkg/Statos
+          cp release/statos/index.html pkg/Statos/Statos.html
+          cp packaging/README.txt pkg/Statos/README.txt
+          cd pkg && zip -r "../Statos-${GITHUB_REF_NAME}-offline.zip" Statos
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Statos ${{ github.ref_name }}
+          files: Statos-${{ github.ref_name }}-offline.zip
+          generate_release_notes: true
+          body: |
+            ## Run Statos on your own computer
+
+            1. Download **Statos-${{ github.ref_name }}-offline.zip** below.
+            2. Unzip it.
+            3. Double-click **Statos.html**. It opens in your browser (Chrome, Edge, Firefox or Safari). No installation or internet connection needed.
+
+            Your scores are saved in your browser on that computer. Keep `Statos.html` in the same folder and use **Save** to keep backup files of your scores. See `README.txt` in the zip for details.
