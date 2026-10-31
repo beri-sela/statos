@@ -1,4 +1,5 @@
 import type { Analysis } from './analyze';
+import { KIND_FROM_XML, XML_KIND, chordName, joinChords, pcName, type Chord, type ChordKind } from './chords';
 import { jumpSymbol, type Mark } from './marks';
 import { fifthsToKey, keyToFifths, mediumAccents, octaveSuffix, spell, toSolfa } from './solfa';
 import { ARTIC_PREFIX, TICKS, type Articulation, type Event, type PartDoc, type ScoreDoc, type VoiceType } from './types';
@@ -110,10 +111,20 @@ export function toMusicXML(score: ScoreDoc, analysis: Analysis): string {
         for (const m of marks) body += directionXml(m);
       }
       const inBar = p.events.filter(e => e.start < end && e.start + e.dur > start);
+      // Chord symbols go on the first part, just before the note (or rest) they fall on.
+      const chords = pi === 0
+        ? (analysis.chords[b] ?? []).map((c, i) => ({ c, at: i * TICKS })).filter((x): x is { c: Chord; at: number } => !!x.c)
+        : [];
+      const chordsIn = (from: number, to: number) => chords.filter(x => x.at >= from && x.at < to)
+        .map(x => harmonyXml(x.c, score.doh, (x.at - from) * factor)).join('');
       if (!inBar.length || inBar.every(e => e.midi === null)) {
+        body += chordsIn(0, len);
         body += `<note><rest measure="yes"/><duration>${len * factor}</duration></note>`;
       } else {
-        for (const e of inBar) body += eventXml(e, start, end, tpq, factor, score.doh);
+        for (const e of inBar) {
+          const from = Math.max(e.start, start) - start, to = Math.min(e.start + e.dur, end) - start;
+          body += chordsIn(from, to) + eventXml(e, start, end, tpq, factor, score.doh);
+        }
       }
       if (marks.some(m => m.kind === 'repeatEnd')) {
         body += '<barline location="right"><bar-style>light-heavy</bar-style><repeat direction="backward"/></barline>';
@@ -131,6 +142,19 @@ export function toMusicXML(score: ScoreDoc, analysis: Analysis): string {
 <score-partwise version="3.1"><work><work-title>${esc(plain(score.title))}</work-title></work>`
     + `<identification><creator type="composer">${esc(plain(score.composer))}</creator></identification>`
     + `<part-list>${partList}</part-list>${partsXml}</score-partwise>`;
+}
+
+/** A MusicXML <harmony> (chord symbol), optionally offset from the following note. */
+function harmonyXml(c: Chord, doh: string, offset: number): string {
+  const part = (pc: number, tag: string) => {
+    const name = pcName(pc, doh);
+    const alter = name.includes('♯') ? 1 : name.includes('♭') ? -1 : 0;
+    return `<${tag}-step>${name[0]}</${tag}-step>${alter ? `<${tag}-alter>${alter}</${tag}-alter>` : ''}`;
+  };
+  const text = chordName(c.root, c.kind, null, doh).slice(pcName(c.root, doh).length);
+  return `<harmony><root>${part(c.root, 'root')}</root><kind text="${esc(text)}">${XML_KIND[c.kind]}</kind>`
+    + (c.bass !== null ? `<bass>${part(c.bass, 'bass')}</bass>` : '')
+    + (offset ? `<offset>${offset}</offset>` : '') + '</harmony>';
 }
 
 function eventXml(e: Event, barStart: number, barEnd: number, tpq: number, factor: number, doh: string): string {
@@ -202,6 +226,8 @@ export function fromMusicXML(xml: string): ImportResult {
 
   let fifths = 0, mode: 'major' | 'minor' = 'major', tempo = 0, tempoText = '';
   const bars: BarInfo[] = [];
+  /** Chords found per measure and pulse, named once the key is known. */
+  const harmonies: { root: number; kind: ChordKind; bass: number | null }[][][] = [];
   const streams = new Map<string, Stream>();
 
   Array.from(root.children).filter(c => c.tagName === 'part').forEach((part, partIdx) => {
@@ -257,6 +283,19 @@ export function fromMusicXML(xml: string): ImportResult {
           const reh = dt.querySelector('rehearsal')?.textContent?.trim();
           if (reh) marks.push(`#${reh}`);
           if (words) marks.push(/[,|]/.test(words) ? `"${words.replace(/["|]/g, '')}"` : words);
+        } else if (el.tagName === 'harmony') {
+          const step = text(child(el, 'root'), 'root-step');
+          if (!step) continue;
+          const alter = Number(text(child(el, 'root'), 'root-alter') || 0);
+          const kindText = text(el, 'kind');
+          const bassEl = child(el, 'bass');
+          const bassStep = bassEl ? text(bassEl, 'bass-step') : '';
+          const offset = toTicks(Number(text(el, 'offset') || 0));
+          const pulse = Math.max(0, Math.floor((cursor + offset) / TICKS));
+          const root = (STEP_PC[step] + alter + 12) % 12;
+          const bass = bassStep ? (STEP_PC[bassStep] + Number(text(bassEl, 'bass-alter') || 0) + 12) % 12 : null;
+          const row = (harmonies[mIdx] ??= []);
+          (row[pulse] ??= []).push({ root, kind: KIND_FROM_XML[kindText] ?? 'maj', bass: bass === root ? null : bass });
         } else if (el.tagName === 'note') {
           if (child(el, 'grace')) continue;
           const isChord = !!child(el, 'chord');
@@ -324,6 +363,15 @@ export function fromMusicXML(xml: string): ImportResult {
   const title = doc.querySelector('work > work-title')?.textContent?.trim()
     || doc.querySelector('movement-title')?.textContent?.trim() || 'Imported score';
   const composer = doc.querySelector('identification > creator[type="composer"]')?.textContent?.trim() ?? '';
+  const chordBars = bars.map((bar, b) => {
+    const pulses = b === 0 && pickup ? Math.ceil(bar.len / TICKS) : bar.num;
+    return Array.from({ length: pulses }, (_, i) => {
+      const h = harmonies[b]?.[i]?.[0];
+      return h ? chordName(h.root, h.kind, h.bass, doh).replace(/♯/g, '#').replace(/♭/g, 'b') : '';
+    });
+  });
+  while (chordBars.length && chordBars[chordBars.length - 1].every(c => !c)) chordBars.pop();
+  const chords = chordBars.length ? joinChords(chordBars) : '';
   const markSegs = bars.map(b => b.marks.join(', '));
   while (markSegs.length && !markSegs[markSegs.length - 1]) markSegs.pop();
   const marks = markSegs.join(' | ');
@@ -332,7 +380,7 @@ export function fromMusicXML(xml: string): ImportResult {
     score: {
       title, subtitle: '', composer, doh, mode, timeNum: first?.num ?? 4, timeDen: first?.den ?? 4,
       tempoText, bpm: tempo ? Math.round(tempo * ((first?.den ?? 4) / 4)) : 90, barsPerRow: 4, pickup,
-      parts, marks, footer: '',
+      parts, marks, chords, footer: '',
     },
     warnings: [...warnings],
   };

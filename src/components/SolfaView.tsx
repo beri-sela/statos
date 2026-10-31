@@ -2,6 +2,7 @@ import {
   Fragment, createContext, useContext, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode,
 } from 'react';
 import type { Analysis, AnalyzedPart } from '../music/analyze';
+import { showChord, splitChords } from '../music/chords';
 import { lyricsByBar } from '../music/edit';
 import { jumpSymbol, type Mark } from '../music/marks';
 import { displayKey, mediumAccents, parseKey } from '../music/solfa';
@@ -19,8 +20,11 @@ export function keyLine(score: ScoreDoc): string {
   return s;
 }
 
-/** The cell being edited on the sheet: one pulse of a part, or one bar of its lyrics. */
-export interface Cursor { partId: string; bar: number; pulse: number; field: 'notes' | 'lyrics' }
+/** The cell being edited on the sheet: one pulse of a part, one bar of its lyrics, or one pulse of the chord row. */
+export interface Cursor { partId: string; bar: number; pulse: number; field: 'notes' | 'lyrics' | 'chords' }
+
+/** `partId` used by the cursor when it is on the chord row. */
+export const CHORD_ROW = '__chords';
 
 interface Props {
   score: ScoreDoc;
@@ -32,6 +36,7 @@ interface Props {
   onCursor: (c: Cursor | null) => void;
   onEditPulse: (partId: string, bar: number, pulse: number, content: string) => void;
   onEditLyric: (partId: string, bar: number, text: string) => void;
+  onEditChord: (bar: number, pulse: number, text: string) => void;
 }
 
 interface Ctx extends Props {
@@ -39,6 +44,9 @@ interface Ctx extends Props {
   inputRef: { current: HTMLInputElement | null };
   barCount: number;
   lyricLines: boolean[];
+  /** Chord text per bar and pulse, as typed. */
+  chordText: string[][];
+  showChords: boolean;
   severityByBar: Map<number, Issue['severity']>;
   pulsesAt: (b: number) => number;
   timeAt: (b: number) => { num: number; den: number };
@@ -85,6 +93,10 @@ export function SolfaView(props: Props) {
   const lastTime = analysis.times[analysis.times.length - 1] ?? { num: score.timeNum, den: score.timeDen };
   const timeAt = (b: number) => analysis.times[b] ?? lastTime;
   const pulsesAt = (b: number) => Math.max(1, ...analysis.parts.map(p => p.bars[b]?.pulses.length ?? 0), analysis.parts.some(p => p.bars[b]) ? 0 : timeAt(b).num);
+  const chordText = splitChords(score.chords ?? '');
+  const showChords = chordText.some(r => r.some(Boolean)) || cursor?.field === 'chords';
+  // Chords sit above each row's rectangle, so rows with chords are always drawn apart.
+  const separateRows = style.separateRows || showChords;
   const lyricLines = analysis.parts.map(p => p.events.some(e => e.lyric) || (cursor?.field === 'lyrics' && cursor.partId === p.doc.id));
 
   // Split the music into rectangles at section breaks and text blocks.
@@ -102,7 +114,7 @@ export function SolfaView(props: Props) {
     blocks.push(
       <section key={`s${from}`} className="music-block">
         {sec?.title && <h3 className="block-title"><Rich text={sec.title} /></h3>}
-        {style.separateRows
+        {separateRows
           ? rows.map((row, r) => <div className="sheet-grid" key={r}><SheetRow row={row} fill={perRow || row.length} /></div>)
           : <div className="sheet-grid">{rows.map((row, r) => <SheetRow key={r} row={row} fill={perRow || row.length} />)}</div>}
       </section>,
@@ -117,8 +129,8 @@ export function SolfaView(props: Props) {
   } as CSSProperties;
 
   return (
-    <SheetCtx.Provider value={{ ...props, inputRef, barCount, lyricLines, severityByBar, pulsesAt, timeAt }}>
-      <div ref={host} className={`solfa-sheet layout-${style.layout}${style.separateRows ? ' rows-apart' : ''}${style.lyricsItalic ? ' lyr-italic' : ''}${style.notesBold ? '' : ' notes-light'}`} style={sheetVars}>
+    <SheetCtx.Provider value={{ ...props, inputRef, barCount, lyricLines, chordText, showChords, severityByBar, pulsesAt, timeAt }}>
+      <div ref={host} className={`solfa-sheet layout-${style.layout}${separateRows ? ' rows-apart' : ''}${showChords ? ' has-chords' : ''}${style.lyricsItalic ? ' lyr-italic' : ''}${style.notesBold ? '' : ' notes-light'}`} style={sheetVars}>
         <PageMarginPreview score={score} edge="top" />
         <header className="sheet-head">
           <h1><Rich text={score.title || 'Untitled'} /></h1>
@@ -171,9 +183,9 @@ function TextBlockView({ title, body }: { title: string; body: string }) {
 }
 
 function SheetRow({ row, fill }: { row: number[]; fill: number }) {
-  const { analysis, lyricLines } = useSheet();
-  // Shared row tracks (marks band, then notes + lyrics per part) keep every bar's lines level.
-  const tracks = ['auto', ...analysis.parts.flatMap((_, i) => (lyricLines[i] ? ['auto', 'auto'] : ['auto']))];
+  const { analysis, lyricLines, showChords } = useSheet();
+  // Shared row tracks (marks band, chord row, then notes + lyrics per part) keep every bar's lines level.
+  const tracks = ['auto', ...(showChords ? ['auto'] : []), ...analysis.parts.flatMap((_, i) => (lyricLines[i] ? ['auto', 'auto'] : ['auto']))];
   const cols = `${row.map(b => `minmax(max-content, ${barChars(analysis, b)}fr)`).join(' ')}${row.length < fill ? ` minmax(0, ${(fill - row.length) * 10}fr)` : ''}`;
   return (
     <div className="sheet-row" style={{ gridTemplateColumns: cols, gridTemplateRows: tracks.join(' ') }}>
@@ -183,7 +195,7 @@ function SheetRow({ row, fill }: { row: number[]; fill: number }) {
 }
 
 function BarBox({ b, rowCount }: { b: number; rowCount: number }) {
-  const { analysis, lyricLines, severityByBar, selectedBar, playingBar, onSelectBar, pulsesAt, timeAt } = useSheet();
+  const { analysis, lyricLines, showChords, severityByBar, selectedBar, playingBar, onSelectBar, pulsesAt, timeAt } = useSheet();
   const marks = analysis.marks[b] ?? [];
   const severity = severityByBar.get(b);
   const cls = [
@@ -191,7 +203,9 @@ function BarBox({ b, rowCount }: { b: number; rowCount: number }) {
     marks.some(m => m.kind === 'repeatStart') ? 'rep-start' : '', marks.some(m => m.kind === 'repeatEnd') ? 'rep-end' : '',
   ].join(' ');
   const cells: ReactNode[] = [];
-  let row = 2;
+  const marksRow = showChords ? 2 : 1;
+  let row = marksRow + 1;
+  if (showChords) cells.push(<ChordCells key="chords" b={b} gridRow={1} />);
   analysis.parts.forEach((p, i) => {
     const notesRow = row++;
     const lyricRow = lyricLines[i] ? row++ : null;
@@ -201,7 +215,9 @@ function BarBox({ b, rowCount }: { b: number; rowCount: number }) {
   return (
     <div className={cls} onClick={() => onSelectBar(b)} data-bar={b}
       style={{ gridRow: `1 / span ${rowCount}`, gridTemplateColumns: `repeat(${pulsesAt(b)}, auto)` }}>
-      <div className="bar-marks" style={{ gridRow: 1, gridColumn: '1 / -1' }}>
+      {/* With chords, the box is drawn by this frame so the chord line can sit above it, outside the box. */}
+      {showChords && <div className="bar-frame" style={{ gridRow: `${marksRow} / -1`, gridColumn: '1 / -1' }} />}
+      <div className="bar-marks" style={{ gridRow: marksRow, gridColumn: '1 / -1' }}>
         {marks.filter(m => m.kind !== 'repeatStart' && m.kind !== 'repeatEnd').map((m, i) => <MarkView key={i} m={m} />)}
         <span className="bar-num">{b + 1}</span>
       </div>
@@ -283,8 +299,18 @@ function useNavigation() {
     if (!cursor) return;
     const parts = analysis.parts.map(p => p.doc.id);
     const pi = parts.indexOf(cursor.partId);
-    const pulsesOf = (b: number) => analysis.parts[pi]?.bars[b]?.pulses.length ?? pulsesAt(b);
+    const pulsesOf = (b: number) => (pi < 0 ? pulsesAt(b) : analysis.parts[pi]?.bars[b]?.pulses.length ?? pulsesAt(b));
     let { bar, pulse } = cursor;
+    // Moving between the chord row (above the top part) and the parts.
+    if (cursor.field === 'chords' && dir === 'down' && parts.length) {
+      onCursor({ ...cursor, field: 'notes', partId: parts[0] });
+      return;
+    }
+    if (cursor.field === 'chords' && dir === 'up') return;
+    if (cursor.field === 'notes' && dir === 'up' && pi === 0) {
+      onCursor({ ...cursor, field: 'chords', partId: CHORD_ROW });
+      return;
+    }
     if (dir === 'next') {
       if (pulse + 1 < pulsesOf(bar)) pulse++;
       else if (bar + 1 <= barCount) { bar++; pulse = 0; }
@@ -300,6 +326,56 @@ function useNavigation() {
     }
     onCursor({ ...cursor, bar, pulse });
   };
+}
+
+/** The chord symbols of one bar, one cell per pulse, above the top part. */
+function ChordCells({ b, gridRow }: { b: number; gridRow: number }) {
+  const { chordText, analysis, cursor, onCursor, pulsesAt, score } = useSheet();
+  const chordStyle = score.style?.chordStyle ?? 'letters';
+  const count = pulsesAt(b);
+  const typed = chordText[b] ?? [];
+  const cells: ReactNode[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = typed[i] ?? '';
+    const editing = cursor?.field === 'chords' && cursor.bar === b && cursor.pulse === i;
+    const parsed = analysis.chords[b]?.[i] ?? null;
+    const bad = !!t && !parsed;
+    cells.push(
+      <div key={`c${i}`} className={`chord${editing ? ' editing' : ''}${bad ? ' bad' : ''}`} style={{ gridRow, gridColumn: i + 1 }}
+        title={bad ? 'Not a chord symbol (e.g. C, G7, Am, F#m, Bbmaj7, C/E, or I, ii, V7)' : 'Click to type a chord'}
+        onClick={e => { e.stopPropagation(); onCursor({ partId: CHORD_ROW, bar: b, pulse: i, field: 'chords' }); }}>
+        {editing ? <ChordInput raw={t} /> : parsed ? showChord(parsed, score.doh, score.mode, chordStyle) : t}
+      </div>,
+    );
+  }
+  return <>{cells}</>;
+}
+
+function ChordInput({ raw }: { raw: string }) {
+  const { cursor, onCursor, onEditChord, inputRef } = useSheet();
+  const move = useNavigation();
+  const ref = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, [cursor?.bar, cursor?.pulse]);
+  if (!cursor) return null;
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const atStart = el.selectionStart === 0 && el.selectionEnd === 0;
+    const atEnd = el.selectionStart === el.value.length;
+    if (e.key === ' ' || (e.key === 'Tab' && !e.shiftKey) || e.key === 'Enter') { e.preventDefault(); move('next'); }
+    else if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); move('prev'); }
+    else if (e.key === '|') { e.preventDefault(); move('nextBar'); }
+    else if (e.key === 'ArrowRight' && atEnd) { e.preventDefault(); move('next'); }
+    else if (e.key === 'ArrowLeft' && atStart) { e.preventDefault(); move('prev'); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); move('down'); }
+    else if (e.key === 'Backspace' && el.value === '') { e.preventDefault(); move('prev'); }
+    else if (e.key === 'Escape') { e.preventDefault(); onCursor(null); }
+  };
+  return (
+    <input ref={el => { ref.current = el; inputRef.current = el; }} className="cell-input chord-input" value={raw} spellCheck={false}
+      aria-label={`Chord, bar ${cursor.bar + 1}, pulse ${cursor.pulse + 1}`} placeholder="C"
+      size={Math.max(3, raw.length + 1)} onKeyDown={onKey} onClick={e => e.stopPropagation()}
+      onChange={e => onEditChord(cursor.bar, cursor.pulse, e.target.value)} />
+  );
 }
 
 function PulseInput({ raw }: { raw: string }) {
@@ -351,6 +427,12 @@ function LyricInput({ value }: { value: string }) {
   );
 }
 
+/** Chord-entry keys: accidentals, qualities and the slash for inversions. */
+const CHORD_KEYS: [string, string, string][] = [
+  ['#', '♯', 'Sharp'], ['b', '♭', 'Flat'], ['m', 'm', 'Minor'], ['7', '7', 'Seventh'], ['maj7', 'maj7', 'Major seventh'],
+  ['m7', 'm7', 'Minor seventh'], ['dim', 'dim', 'Diminished'], ['sus4', 'sus4', 'Suspended fourth'], ['/', '/', 'Bass note (inversion), e.g. C/E'],
+];
+
 const KEYS: { text: string; label: string; tip: string }[] = [
   { text: "'", label: 'd¹', tip: 'Octave up' }, { text: '1', label: 'd₁', tip: 'Octave down' },
   { text: '.', label: '.', tip: 'Half pulse (d.r)' }, { text: ',', label: ',', tip: 'Quarter pulse (d,r.m,f)' },
@@ -361,7 +443,7 @@ const KEYS: { text: string; label: string; tip: string }[] = [
 
 /** On-screen keys shown while a cell is being edited: symbols that are awkward to type (especially on phones) and navigation. */
 function KeyRow() {
-  const { cursor, onCursor, onEditPulse, onEditLyric, inputRef } = useSheet();
+  const { cursor, onCursor, onEditPulse, onEditLyric, onEditChord, inputRef } = useSheet();
   const move = useNavigation();
   if (!cursor) return null;
   const keep = (e: { preventDefault: () => void }) => e.preventDefault(); // keep focus in the cell
@@ -371,25 +453,31 @@ function KeyRow() {
     const s = el.selectionStart ?? el.value.length, e = el.selectionEnd ?? s;
     const v = el.value.slice(0, s) + ch + el.value.slice(e);
     if (cursor.field === 'lyrics') onEditLyric(cursor.partId, cursor.bar, v);
+    else if (cursor.field === 'chords') onEditChord(cursor.bar, cursor.pulse, v);
     else onEditPulse(cursor.partId, cursor.bar, cursor.pulse, v);
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + ch.length, s + ch.length); });
   };
   const isLyrics = cursor.field === 'lyrics';
+  const isChords = cursor.field === 'chords';
   return (
     <div className="key-row" role="toolbar" aria-label="Note entry keys" onClick={e => e.stopPropagation()}>
-      {isLyrics
+      {isChords
+        ? CHORD_KEYS.map(([t, label, tip]) => <button key={t} data-tip={tip} aria-label={tip} onMouseDown={keep} onClick={() => insert(t)}>{label}</button>)
+        : isLyrics
         ? [['-', 'Hyphen between syllables'], ['_', 'Hold the syllable over the next note']].map(([t, tip]) => (
           <button key={t} data-tip={tip} onMouseDown={keep} onClick={() => insert(t)}>{t}</button>))
         : KEYS.map(k => <button key={k.text} data-tip={k.tip} aria-label={k.tip} onMouseDown={keep} onClick={() => insert(k.text)}>{k.label}</button>)}
       <span className="key-gap" />
       {!isLyrics && <>
+        {!isChords && <button data-tip="Chord row above the music" onMouseDown={keep}
+          onClick={() => onCursor({ ...cursor, field: 'chords', partId: CHORD_ROW })}>Chords</button>}
         <button data-tip="Previous pulse" aria-label="Previous pulse" onMouseDown={keep} onClick={() => move('prev')}>◀</button>
         <button data-tip="Next pulse" aria-label="Next pulse" onMouseDown={keep} onClick={() => move('next')}>▶</button>
         <button data-tip="Part above" aria-label="Part above" onMouseDown={keep} onClick={() => move('up')}>▲</button>
         <button data-tip="Part below" aria-label="Part below" onMouseDown={keep} onClick={() => move('down')}>▼</button>
       </>}
-      <button data-tip={isLyrics ? 'Back to notes' : 'Type lyrics for this bar (Ctrl+L)'} onMouseDown={keep}
-        onClick={() => onCursor({ ...cursor, field: isLyrics ? 'notes' : 'lyrics' })}>{isLyrics ? 'Notes' : 'Lyrics'}</button>
+      {!isChords && <button data-tip={isLyrics ? 'Back to notes' : 'Type lyrics for this bar (Ctrl+L)'} onMouseDown={keep}
+        onClick={() => onCursor({ ...cursor, field: isLyrics ? 'notes' : 'lyrics' })}>{isLyrics ? 'Notes' : 'Lyrics'}</button>}
       <button className="primary" onMouseDown={keep} onClick={() => onCursor(null)}>Done</button>
     </div>
   );

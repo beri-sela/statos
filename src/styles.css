@@ -509,3 +509,38 @@ a.choice:hover, .choice:hover:not(:disabled) { border-color: #aab0bd; }
 .page-margin.top { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
 .page-margin .credit { font-size: 7.5pt; color: #8a909b; }
 @media print { .page-margin { display: none !important; } }
+
+/* Items in the music panel keep their natural height; the panel scrolls instead of squeezing them
+   (otherwise the collapsed problems bar shrinks to a sliver on short screens). */
+.preview-pane > * { flex-shrink: 0; }
+.issues-head { min-height: 40px; align-items: center; font-size: 14px; line-height: 1.3; }
+@media (max-width: 760px) { .issues-head { font-size: 14px; padding: 10px 12px; } }
+
+/* ---------- chords ---------- */
+.chord { font-family: var(--sheet-font); font-weight: 700; font-size: calc(var(--note-size) * .95); color: #26308f; white-space: nowrap; padding: 2px 4px 3px 0; min-height: 1.4em; cursor: text; align-self: end; }
+.chord:hover { background: rgba(47, 91, 211, .07); }
+.chord.editing { background: #e5ecff; }
+.chord.bad { color: var(--err); text-decoration: underline wavy; }
+.chord-input { font-weight: 700; color: #26308f; }
+/* With chords the frame draws each bar's box, so the chord line sits above it, outside the box. */
+.has-chords .sheet-grid { border: none; }
+.has-chords .bar { border-right: none; }
+.has-chords .bar-frame { margin: 0 -6px -4px; border-top: 1.6px solid #111; border-bottom: 1.6px solid #111; border-right: 1px solid #111; pointer-events: none; }
+.has-chords .bar:first-child .bar-frame { border-left: 1.6px solid #111; }
+.has-chords .bar:last-child .bar-frame { border-right-width: 1.6px; }
+.has-chords .bar.selected { outline: none; }
+.has-chords .bar.selected .bar-frame { outline: 2.5px solid var(--sel); outline-offset: -2.5px; }
+.has-chords .bar.playing { background: none; }
+.has-chords .bar.playing .bar-frame { background: var(--play); }
+.has-chords .bar.has-error, .has-chords .bar.has-warning { box-shadow: none; }
+.has-chords .bar.has-error .bar-frame { box-shadow: inset 0 -4px 0 var(--err); }
+.has-chords .bar.has-warning .bar-frame { box-shadow: inset 0 -4px 0 #e8a33a; }
+.has-chords .bar.rep-start { border-left: none; }
+.has-chords .bar.rep-start .bar-frame { border-left: 4px double #111; }
+.has-chords .bar.rep-end .bar-frame { border-right: 4px double #111; }
+.has-chords .bar:hover { background: none; }
+@media print {
+  .has-chords .bar.selected .bar-frame { outline: none; }
+  .has-chords .bar.playing .bar-frame { background: none; }
+  .has-chords .bar.has-error .bar-frame, .has-chords .bar.has-warning .bar-frame { box-shadow: none; }
+}

@@ -152,6 +152,28 @@ The medium accent \`/\` (in 4, 6, 9 and 12 pulses) is placed for you.`,
 Marks appear in the top band of the bar's box. Click ✕ on a mark to remove it. *Edit as text* shows all marks in one line (bars separated by \`|\`).`,
   },
   {
+    id: 'chords', group: 'Lessons', title: 'Chords above the music',
+    summary: 'Add chord symbols automatically or by typing; show them as letters or numbers.',
+    keywords: 'chord chords harmony accompaniment guitar keyboard piano roman numeral numbers letters symbol automatic detect',
+    body: `Chord symbols sit above each bar, over the beat where the chord starts, for keyboard or guitar players.
+
+## Add them automatically
+1. In the **Chords** panel, choose *One chord per* bar, half bar or beat.
+1. Click **✨ Add chords automatically**.
+
+Statos looks at the notes all the parts sing at that point (longer notes count more, the lowest note decides inversions such as C/E) and picks the chord that fits best, preferring chords that belong to the key. Tick *Keep chords I've typed* to fill only the empty places. Automatic chords are a starting point: check them by ear.
+
+## Type them
+Click **Type chords on the sheet** (or click above a bar, or press [[↑]] from the top part). Type the chord and press [[Space]] or [[Tab]] for the next beat; [[↓]] goes back to the notes.
+- Letters: \`C\` \`Dm\` \`G7\` \`F#m\` \`Bbmaj7\` \`Bdim\` \`Csus4\`, and \`C/E\` for a chord with E in the bass.
+- Numbers in the key: \`I\` \`ii\` \`V7\` \`IVmaj7\` \`vii°\` \`bVII\` (capitals for major, small letters for minor).
+
+## Letters or numbers
+*Show chords as* switches between letter names (C, Dm, Em, Fmaj7) and numbers in the key (I, ii, iii, IVmaj7), whichever way they were typed. Numbers show inversions with figures (I⁶, V⁶₅). Minor pieces are numbered from lah (i, iv, V).
+
+When a score has chords, each row of bars is drawn as its own rectangle so the chord line fits above it. Chords also appear in the staff view and in exported MusicXML.`,
+  },
+  {
     id: 'articulation', group: 'Lessons', title: 'Accents, staccato, fermatas and slurs',
     summary: 'Articulation signs and slurs, typed before or around notes.',
     keywords: 'articulation accent marcato staccato tenuto fermata pause slur tie phrase',

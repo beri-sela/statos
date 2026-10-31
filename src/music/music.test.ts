@@ -159,3 +159,77 @@ describe('tempo', () => {
     expect(t.secondsPerTick(0)).toBeCloseTo(60 / 60 / 12);
   });
 });
+
+describe('chords', () => {
+  it('reads chord symbols in several spellings', async () => {
+    const { parseChord } = await import('./chords');
+    expect(parseChord('G7')).toMatchObject({ root: 7, kind: '7', bass: null });
+    expect(parseChord('F#m')).toMatchObject({ root: 6, kind: 'min' });
+    expect(parseChord('Bbmaj7')).toMatchObject({ root: 10, kind: 'maj7' });
+    expect(parseChord('C/E')).toMatchObject({ root: 0, kind: 'maj', bass: 4 });
+    expect(parseChord('Hm')).toBeNull();
+  });
+
+  it('flags symbols it cannot read', () => {
+    const a = analyzeScore({ ...score({ timeNum: 2 }, ['d :r']), chords: 'C :Xq' });
+    expect(a.issues).toContainEqual(expect.objectContaining({ category: 'syntax', bar: 0 }));
+    expect(a.chords[0][0]).toMatchObject({ root: 0, kind: 'maj' });
+  });
+
+  it('works out I – IV – V7 – I in C, and a first inversion', async () => {
+    const { detectChords } = await import('./chords');
+    const s = score({ timeNum: 2, doh: 'C' }, [
+      "m :- | f :- | f :- | m :-",
+      "s1 :- | l1 :- | t1 :- | s1 :-",
+      "d' :- | d' :- | r :- | d' :-".replace(/d'/g, 'd'),
+      "d :- | f1 :- | s1 :- | d :-".replace(/^d/, 'd1').replace(/\| d :-$/, '| d1 :-'),
+    ]);
+    const a = analyzeScore(s);
+    expect(detectChords(a, 'C', 0, 'bar')).toBe('C : | F : | G7 : | C :');
+    const inv = analyzeScore(score({ timeNum: 1, doh: 'C' }, ['s', 'd', 'm1'.replace('m1', 'm1')]));
+    expect(detectChords(inv, 'C', 0, 'bar')).toBe('C/E');
+  });
+
+  it('finds the minor chord and spells flats in flat keys', async () => {
+    const { detectChords } = await import('./chords');
+    const a = analyzeScore(score({ timeNum: 1, doh: 'F' }, ['m', 'd', 'l1']));
+    expect(detectChords(a, 'F', 5, 'bar')).toBe('Dm');
+    const b = analyzeScore(score({ timeNum: 1, doh: 'F' }, ['l', 'd', 'f']));
+    expect(detectChords(b, 'F', 5, 'bar')).toBe('B♭');
+  });
+});
+
+describe('chords: numerals, editing and MusicXML', () => {
+  it('reads and shows Roman numerals in the key, with inversion figures', async () => {
+    const { parseRoman, romanName, parseChord } = await import('./chords');
+    expect(parseRoman('V7', 'D', 'major')).toMatchObject({ root: 9, kind: '7' });
+    expect(parseRoman('ii', 'F', 'major')).toMatchObject({ root: 7, kind: 'min' });
+    expect(parseRoman('bVII', 'C', 'major')).toMatchObject({ root: 10, kind: 'maj' });
+    expect(romanName(parseChord('Fmaj7')!, 'C', 'major')).toBe('IVmaj7');
+    expect(romanName(parseChord('Em')!, 'C', 'major')).toBe('iii');
+    expect(romanName(parseChord('C/E')!, 'C', 'major')).toBe('I⁶');
+    expect(romanName(parseChord('G7/B')!, 'C', 'major')).toBe('V⁶₅');
+    expect(romanName(parseChord('Bb')!, 'C', 'major')).toBe('♭VII');
+    // Minor (lah-mode) pieces count from lah: in doh = B♭, G minor is i and D is V.
+    expect(romanName(parseChord('Gm')!, 'Bb', 'minor')).toBe('i');
+    expect(romanName(parseChord('D')!, 'Bb', 'minor')).toBe('V');
+  });
+
+  it('accepts typed numerals in the score', () => {
+    const a = analyzeScore({ ...score({ timeNum: 2, doh: 'G' }, ['d :r']), chords: 'I :V7' });
+    expect(a.issues).toEqual([]);
+    expect(a.chords[0].map(c => c && c.root)).toEqual([7, 2]);
+  });
+
+  it('places a typed chord on a pulse', async () => {
+    const { setChordAt } = await import('./chords');
+    expect(setChordAt('', 1, 2, 'G7', () => 3)).toBe(': : | : :G7');
+    expect(setChordAt('C : : | : :G7', 1, 2, '', () => 3)).toBe('C : :');
+  });
+
+  it('round-trips chords through MusicXML', () => {
+    const s = { ...score({ timeNum: 3, doh: 'F' }, ['d :r :m | f :- :-', 'd1 :t2 :d1 | l2 :- :-']), chords: 'F : :C/E | Bbmaj7 : :' };
+    const back = fromMusicXML(toMusicXML(s, analyzeScore(s)));
+    expect(back.score.chords).toBe('F : :C/E | Bbmaj7 : :');
+  });
+});

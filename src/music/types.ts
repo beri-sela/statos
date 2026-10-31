@@ -34,6 +34,8 @@ export interface SheetStyle {
   separateRows: boolean;
   /** Page numbers on printouts and PDFs. */
   pageNumbers?: PageNumberStyle;
+  /** Chords shown as letter names (C, Dm, G7) or as numerals in the key (I, ii, V7). */
+  chordStyle?: 'letters' | 'roman';
 }
 
 export type PagePosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
@@ -92,6 +94,11 @@ export interface ScoreDoc {
    * time changes (`3/4`), rehearsal marks (`#A`), repeats (`repeat start`, `repeat end`), labels (`[FIRST TIME]`) or quoted text (`"*dolce*"`).
    */
   marks: string;
+  /**
+   * Chord symbols above the music, laid out like the notes: bars separated by `|`, pulses by `:`,
+   * e.g. `C : :G7 : | Am : :F/A :`. An empty pulse has no chord.
+   */
+  chords?: string;
   sections?: SectionBreak[];
   texts?: TextBlock[];
   footer: string;

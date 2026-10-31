@@ -4,12 +4,13 @@ import { Editor, type EditorHandle } from './components/Editor';
 import { IssueList } from './components/IssueList';
 import { Menu } from './components/Menu';
 import { PrintStyle } from './components/PrintStyle';
-import { SolfaView, type Cursor } from './components/SolfaView';
+import { CHORD_ROW, SolfaView, type Cursor } from './components/SolfaView';
 import { Wizard } from './components/Wizard';
 import { HelpPage } from './help/HelpPage';
 import { AboutPage, PrivacyPage, TermsPage } from './pages/InfoPages';
 import { href, navigate, useRoute } from './router';
 import { analyzeScore } from './music/analyze';
+import { setChordAt } from './music/chords';
 import { setLyricBar, setPulse } from './music/edit';
 import { barTimes, parseMarks } from './music/marks';
 import { fromMusicXML, toMusicXML } from './music/musicxml';
@@ -159,6 +160,15 @@ export function App() {
       parts: score.parts.map(p => (p.id === partId ? { ...p, lyrics: setLyricBar(ap, analysis.barCount, bar, text) } : p)),
     }, `lyric:${partId}:${bar}`);
   };
+  const editChord = (bar: number, pulse: number, text: string) => {
+    update({ ...score, chords: setChordAt(score.chords ?? '', bar, pulse, text, pulsesInBar) }, `chord:${bar}:${pulse}`);
+  };
+  /** Puts the cursor on the chord row, above the selected bar (or the first one). */
+  const startChords = () => {
+    if (view === 'staff') setView('solfa');
+    setPane('sheet');
+    setCursor({ partId: CHORD_ROW, bar: selectedBar ?? 0, pulse: 0, field: 'chords' });
+  };
   const addScores = (list: ScoreDoc[]) => {
     setScores(prev => [...list, ...prev]);
     setCurrentId(list[0].id);
@@ -231,7 +241,7 @@ export function App() {
   const sheet = (
     <SolfaView score={score} analysis={visible} selectedBar={selectedBar} playingBar={playingBar}
       onSelectBar={b => setSelectedBar(b)} cursor={cursor} onCursor={c => { setCursor(c); if (c) setSelectedBar(c.bar); }}
-      onEditPulse={editPulse} onEditLyric={editLyric} />
+      onEditPulse={editPulse} onEditLyric={editLyric} onEditChord={editChord} />
   );
   const staff = <Suspense fallback={<p className="hint">Loading staff notation…</p>}><StaffView xml={xml} /></Suspense>;
 
@@ -319,7 +329,7 @@ export function App() {
       <main className={`layout${sideHidden ? ' side-hidden' : ''}`} data-pane={pane} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
         <aside className="editor-pane" aria-label="Score details">
           <Editor ref={editor} score={score} analysis={analysis} selectedBar={selectedBar}
-            autoTidy={autoTidy} onAutoTidy={setAutoTidy} onChange={update} />
+            autoTidy={autoTidy} onAutoTidy={setAutoTidy} onChange={update} onStartChords={startChords} />
           <nav className="side-links" aria-label="Site">
             <a href={href('help')}>Help</a><a href={href('about')}>About</a><a href={href('privacy')}>Privacy</a><a href={href('terms')}>Terms</a>
           </nav>

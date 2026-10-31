@@ -1,6 +1,8 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { Analysis } from '../music/analyze';
+import { detectChords, joinChords, splitChords, type ChordRate, type ChordStyle } from '../music/chords';
 import { countPulses, tidyNotes } from '../music/format';
+import { parseKey } from '../music/solfa';
 import { DYNAMIC_MARKS, JUMP_MARKS, TEMPO_MARKS, addMark, classify, marksForBar, removeMark } from '../music/marks';
 import { DEFAULT_PAGE_NUMBERS, DEFAULT_STYLE, type PageNumberStyle, type PagePosition, type PartDoc, type ScoreDoc, type SheetStyle, type TextBlock, type VoiceType } from '../music/types';
 import { newId } from '../storage';
@@ -38,10 +40,12 @@ interface Props {
   autoTidy: boolean;
   onAutoTidy: (v: boolean) => void;
   onChange: (s: ScoreDoc) => void;
+  /** Starts typing chords on the sheet. */
+  onStartChords: () => void;
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
-  { score, analysis, selectedBar, autoTidy, onAutoTidy, onChange }, ref,
+  { score, analysis, selectedBar, autoTidy, onAutoTidy, onChange, onStartChords }, ref,
 ) {
   const areas = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const lastArea = useRef<{ id: string; field: 'notes' | 'lyrics' } | null>(null);
@@ -105,6 +109,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + text.length, start + text.length); });
   };
 
+  const hasChords = !!score.chords?.trim();
   const barCountOf = (id: string) => analysis.parts.find(p => p.doc.id === id)?.bars.length ?? 0;
   const timeValue = `${score.timeNum}/${score.timeDen}`;
 
@@ -170,7 +175,10 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
               {Object.entries(FONTS).map(([k, f]) => <option key={k} value={k}>{f.label}</option>)}
             </select>
           </label>
-          <label className="check"><input type="checkbox" checked={style.separateRows} onChange={e => setStyle({ separateRows: e.target.checked })} />Each row of bars in its own rectangle</label>
+          <label className="check" title={hasChords ? 'Always on when the score has chords, so the chord line fits above each row' : undefined}>
+            <input type="checkbox" checked={style.separateRows || hasChords} disabled={hasChords} onChange={e => setStyle({ separateRows: e.target.checked })} />
+            Each row of bars in its own rectangle{hasChords && <span className="hint"> (always on with chords)</span>}
+          </label>
           <label className="check"><input type="checkbox" checked={style.notesBold} onChange={e => setStyle({ notesBold: e.target.checked })} />Bold notes</label>
           <label className="check"><input type="checkbox" checked={style.lyricsItalic} onChange={e => setStyle({ lyricsItalic: e.target.checked })} />Italic lyrics</label>
         </div>
@@ -236,6 +244,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       </section>
 
       <MarksCard score={score} selectedBar={selectedBar} onChange={m => set('marks', m)} />
+
+      <ChordsCard score={score} analysis={analysis} onChange={onChange} onStartChords={onStartChords} />
 
       <BlocksCard score={score} selectedBar={selectedBar} barCount={analysis.barCount} onChange={onChange} />
 
@@ -328,6 +338,73 @@ function MarksCard({ score, selectedBar, onChange }: { score: ScoreDoc; selected
         <>
           <p className="hint">One entry per bar, separated by <code>|</code>; several marks in a bar separated by commas.</p>
           <textarea className="mono" rows={3} spellCheck={false} value={score.marks} onChange={e => onChange(e.target.value)} />
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Chord symbols above the music: worked out from the notes, typed on the sheet, shown as letters or numerals. */
+function ChordsCard({ score, analysis, onChange, onStartChords }: {
+  score: ScoreDoc; analysis: Analysis; onChange: (s: ScoreDoc) => void; onStartChords: () => void;
+}) {
+  const [rate, setRate] = useState<ChordRate>('bar');
+  const [keep, setKeep] = useState(true);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [raw, setRaw] = useState(false);
+  const chordStyle = score.style?.chordStyle ?? 'letters';
+  const has = !!score.chords?.trim();
+  const count = analysis.chords.flat().filter(Boolean).length;
+
+  const addAutomatically = () => {
+    const found = detectChords(analysis, score.doh, parseKey(score.doh)?.pc ?? 0, rate);
+    if (!keep || !has) { onChange({ ...score, chords: found }); return; }
+    // Keep chords already typed; fill the other places.
+    const old = splitChords(score.chords ?? ''), add = splitChords(found);
+    const merged = add.map((row, b) => row.map((c, i) => old[b]?.[i] || c));
+    for (let b = add.length; b < old.length; b++) merged.push(old[b]);
+    onChange({ ...score, chords: joinChords(merged) });
+  };
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>Chords</h2>
+        <button className="link" onClick={() => setRaw(r => !r)}>{raw ? 'Hide text' : 'Edit as text'}</button>
+      </div>
+      <p className="hint">Chord symbols above the music, for accompanists. Statos can work them out from the notes all the parts sing, or you can type them on the sheet.</p>
+      <div className="fields">
+        <label>Show chords as
+          <select value={chordStyle} onChange={e => onChange({ ...score, style: { ...DEFAULT_STYLE, ...score.style, chordStyle: e.target.value as ChordStyle } })}>
+            <option value="letters">Letters (C, Dm, Em, Fmaj7)</option>
+            <option value="roman">Numbers in the key (I, ii, iii, IVmaj7)</option>
+          </select>
+        </label>
+        <label>One chord per
+          <select value={rate} onChange={e => setRate(e.target.value as ChordRate)}>
+            <option value="bar">bar</option>
+            <option value="half">half bar</option>
+            <option value="beat">beat (pulse)</option>
+          </select>
+        </label>
+        {has && <label className="check"><input type="checkbox" checked={keep} onChange={e => setKeep(e.target.checked)} />Keep chords I’ve typed</label>}
+      </div>
+      <div className="block-add">
+        <button className="primary" onClick={addAutomatically} disabled={!analysis.barCount}
+          data-tip="Works out each chord from the notes sounding in all parts">✨ Add chords automatically</button>
+        <button onClick={onStartChords} data-tip="Type chords above the selected bar: Space or Tab moves to the next pulse">Type chords on the sheet</button>
+        {has && (confirmClear
+          ? <span className="confirm">Remove all {count} chords?
+              <button className="danger" onClick={() => { onChange({ ...score, chords: '' }); setConfirmClear(false); }}>Remove</button>
+              <button onClick={() => setConfirmClear(false)}>Cancel</button>
+            </span>
+          : <button onClick={() => setConfirmClear(true)}>Clear chords</button>)}
+      </div>
+      <p className="hint">Type letters (<code>C</code> <code>G7</code> <code>F#m</code> <code>Bbmaj7</code> <code>C/E</code>) or numbers (<code>I</code> <code>ii</code> <code>V7</code> <code>IVmaj7</code>). Automatic chords are a starting point: check them by ear.</p>
+      {raw && (
+        <>
+          <p className="hint">Laid out like the notes: bars separated by <code>|</code>, pulses by <code>:</code>, e.g. <code>C : :G7 :</code>.</p>
+          <textarea className="mono" rows={3} spellCheck={false} value={score.chords ?? ''} onChange={e => onChange({ ...score, chords: e.target.value })} />
         </>
       )}
     </section>

@@ -1,3 +1,4 @@
+import { parseChordText, type Chord } from './chords';
 import { barTimes, parseMarks, type Mark } from './marks';
 import { assignLyrics, buildEvents, parseNotes } from './parse';
 import { mediumAccents, parseKey } from './solfa';
@@ -17,6 +18,8 @@ export interface Analysis {
   marks: Mark[][];
   /** Time signature in force at each bar. */
   times: { num: number; den: number }[];
+  /** Chord symbols per bar and pulse (null = none). */
+  chords: (Chord | null)[][];
 }
 
 const VOICE_RANK: Record<VoiceType, number> = { S: 0, A: 1, T: 2, B: 3 };
@@ -85,10 +88,13 @@ export function analyzeScore(score: ScoreDoc): Analysis {
     }
   }
 
+  const chordText = parseChordText(score.chords ?? '', score.doh, score.mode);
+  issues.push(...chordText.issues);
+
   checkRanges(parts, issues);
   checkVoicing(parts, issues);
 
-  return { parts, issues, barCount, marks, times };
+  return { parts, issues, barCount, marks, times, chords: chordText.grid };
 }
 
 function checkRanges(parts: AnalyzedPart[], issues: Issue[]) {

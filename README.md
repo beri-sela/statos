@@ -19,6 +19,7 @@ Statos is a browser-based editor for writing choral music in **tonic sol-fa** an
   - *Export MusicXML* opens in MuseScore, Sibelius, Finale or Dorico.
   - *Import* a MusicXML file and it is converted to sol-fa (each staff voice becomes a part).
 - **Bar marks**: dynamics, jumps (D.C., D.S., Fine, Segno, Coda), repeats, rehearsal marks, tempo changes, labels such as *FIRST TIME*, free text with **bold** and *italic*, and time-signature changes.
+- **Chords**: chord symbols above the beats, added automatically from the notes (per bar, half bar or beat) or typed on the sheet, shown as letters (C, Dm, G7) or numbers in the key (I, ii, V7). They also appear in the staff view and MusicXML.
 - **Articulations and rhythms**: accents, marcato, staccato, tenuto, fermata, slurs, half and quarter pulses, dotted rhythms and triplets.
 - **Layout and appearance**: one box per bar or a separate box for each part's line; bars per row (or automatic); fonts, text size, bold notes and italic lyrics. Boxes grow to fit their contents.
 - **Playback** of all parts, from the start or from the selected bar. It follows the tempo: the base speed, `♩ = N` marks, gradual *rit.*/*rall.*/*accel.*, *a tempo*, and fermatas. Changing the speed or the notes while it plays is heard straight away.

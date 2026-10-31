@@ -2,6 +2,19 @@
 
 All notable changes to Statos. Versions follow [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Chords** above the music, over the beat where each chord starts:
+  - **Add chords automatically** works them out from the notes all the parts sing, one per bar, half bar or beat (inversions such as C/E included; chords in the key preferred). Optionally keeps chords already typed.
+  - Type chords on the sheet as letters (`C`, `G7`, `F#m`, `Bbmaj7`, `C/E`) or as numbers in the key (`I`, `ii`, `V7`, `IVmaj7`).
+  - *Show chords as* letters (C, Dm, Fmaj7) or numbers (I, ii, IVmaj7, with inversion figures such as I⁶ and V⁶₅); minor pieces are numbered from lah.
+  - Chords appear in the staff view and in MusicXML export, and are read from imported MusicXML.
+  - Scores with chords always draw each row as its own rectangle so the chord line fits above it.
+
+### Fixed
+- The collapsed problems bar no longer gets squeezed on short screens.
+
 ## [0.1.2] — 2026-10-31
 
 ### Added
