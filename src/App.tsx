@@ -3,6 +3,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'rea
 import { Editor, type EditorHandle } from './components/Editor';
 import { IssueList } from './components/IssueList';
 import { Menu } from './components/Menu';
+import { PrintStyle } from './components/PrintStyle';
 import { SolfaView, type Cursor } from './components/SolfaView';
 import { Wizard } from './components/Wizard';
 import { HelpPage } from './help/HelpPage';
@@ -263,6 +264,7 @@ export function App() {
 
   return (
     <div className="app">
+      <PrintStyle score={score} />
       <header className="toolbar">
         <button className="icon-btn panel-toggle desktop-only" onClick={() => setSideHidden(h => !h)} aria-pressed={!sideHidden}
           data-tip={sideHidden ? 'Show the side panel' : 'Hide the side panel'} aria-label="Toggle side panel">{sideHidden ? '⇥' : '⇤'}</button>

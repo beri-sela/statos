@@ -45,6 +45,8 @@ jobs:
           files: Statos-${{ github.ref_name }}-offline.zip
           generate_release_notes: true
           body: |
+            Use Statos online at **https://statos.site**, or run it offline:
+
             ## Run Statos on your own computer
 
             1. Download **Statos-${{ github.ref_name }}-offline.zip** below.

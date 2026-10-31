@@ -32,7 +32,32 @@ export interface SheetStyle {
   notesBold: boolean;
   /** Draw each row of bars as its own rectangle instead of one big grid. */
   separateRows: boolean;
+  /** Page numbers on printouts and PDFs. */
+  pageNumbers?: PageNumberStyle;
 }
+
+export type PagePosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
+export interface PageNumberStyle {
+  show: boolean;
+  position: PagePosition;
+  /** `page-of` “Page 1 of 3”, `page` “Page 1”, `number` “1”, `dashes` “– 1 –”. */
+  format: 'page-of' | 'page' | 'number' | 'dashes';
+  /** Font key from the font list, or `music` for the music font. */
+  font: string;
+  weight: 'normal' | 'bold';
+  italic: boolean;
+  /** Size in points. */
+  size: number;
+  /** Number printed on the first page (e.g. 0 so a title page is 0 and the next page is 1). */
+  start: number;
+  /** Leave the first page without a number. */
+  skipFirst: boolean;
+}
+
+export const DEFAULT_PAGE_NUMBERS: PageNumberStyle = {
+  show: true, position: 'bottom-left', format: 'page-of', font: 'sans', weight: 'normal', italic: false, size: 8, start: 1, skipFirst: false,
+};
 
 export const DEFAULT_STYLE: SheetStyle = {
   layout: 'bar', font: 'sans', titleFont: 'serif', size: 13, lyricsItalic: false, notesBold: true, separateRows: false,

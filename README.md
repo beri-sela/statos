@@ -2,6 +2,8 @@
 
 Statos is a browser-based editor for writing choral music in **tonic sol-fa** and converting it to and from **staff notation**. It runs entirely in the browser (React, no backend, no login). Scores are saved in the browser's local storage, and you can download them as files to back them up or share them.
 
+**Use it online at [statos.site](https://statos.site)** — nothing to install. Or [download the offline copy](#download-and-run-it-on-your-computer) to run it from your own computer. See the [changelog](CHANGELOG.md) for what's new.
+
 ## What it does
 
 - **Edit directly on the sheet**, like MuseScore: click a note in the boxed sol-fa and type. Space or Tab moves to the next pulse (new bars are added as you go), the arrow keys move between pulses and parts, Ctrl+L types lyrics for the bar, Esc finishes. An on-screen key row gives octave marks, divisions, triplets, articulations and navigation, which helps most on phones.
@@ -22,7 +24,7 @@ Statos is a browser-based editor for writing choral music in **tonic sol-fa** an
 - **Playback** of all parts, from the start or from the selected bar. It follows the tempo: the base speed, `♩ = N` marks, gradual *rit.*/*rall.*/*accel.*, *a tempo*, and fermatas. Changing the speed or the notes while it plays is heard straight away.
 - **Rectangles where you want them**: start a new box at any bar (a refrain, a verse, a coda) with its own heading, draw each row of bars as its own rectangle, and add **text blocks** for verses sung to the same melody.
 - **Phones and tablets**: a tab bar switches between *Details*, *Sol-fa* and *Staff*; menus open as bottom sheets; controls are sized for touch. On desktop, buttons show tooltips.
-- **Printing**: *Print* gives just the music.
+- **Printing**: *Print* gives just the music, with a small credit, “Compose and transcribe at https://statos.site”, bottom-right on every page. **Page numbers** are set in *Appearance*: position (top/bottom × left/centre/right), format, font, size, bold/italic, the first page's number, and an option to leave the first page unnumbered.
 - **Welcome wizard**: a first-time visitor (or anyone with no scores) starts at a welcome screen that offers a new score, importing a file, opening an example, or the lessons.
 - **Help page** (`#/help`, toolbar or F1): searchable lessons from a first score to marks, boxes, playback, MusicXML and phones, plus a cheat sheet and shortcuts. Each lesson has its own link, e.g. `#/help/lyrics`.
 - **About, Privacy and Terms pages** (`#/about`, `#/privacy`, `#/terms`). Statos collects no data: no accounts, cookies, analytics or third-party requests.
@@ -65,7 +67,7 @@ The built `dist/` folder is a static site: it can be hosted anywhere (GitHub Pag
 
 ### Making a release
 
-1. Set the new version in `package.json` (e.g. `0.2.0`) and commit.
+1. Set the new version (e.g. `npm version 0.2.0 --no-git-tag-version`), add an entry to `CHANGELOG.md`, and commit.
 2. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
 
 The *Release* workflow (`.github/workflows/release.yml`) then runs the tests, builds the offline file, and publishes a GitHub release with `Statos-v0.2.0-offline.zip` (the HTML file plus `packaging/README.txt`).

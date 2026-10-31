@@ -1,7 +1,7 @@
 {
   "name": "statos",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Statos (Staff and Tonic Sol-fa): a browser editor for writing tonic sol-fa and converting it to and from staff notation.",
   "type": "module",
   "scripts": {

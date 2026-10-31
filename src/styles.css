@@ -231,7 +231,15 @@ input.full { width: 100%; }
 
 /* ---------- print: just the music ---------- */
 @media print {
-  @page { size: A4; margin: 10mm; }
+  /* Every printed page carries the Statos credit in its bottom margin (page numbers: see PrintStyle.tsx). */
+  @page {
+    size: A4;
+    margin: 10mm 10mm 13mm;
+    @bottom-right {
+      content: "Compose and transcribe at https://statos.site";
+      font: 7pt 'Segoe UI', system-ui, sans-serif; color: #888; vertical-align: top; padding-top: 3mm;
+    }
+  }
   :root { background: #fff; }
   .toolbar, .editor-pane, .issues, .notice, .hint { display: none !important; }
   .layout { display: block; padding: 0; }
@@ -486,3 +494,9 @@ a.choice:hover, .choice:hover:not(:disabled) { border-color: #aab0bd; }
   .wizard-backdrop.welcome { padding: 0; }
   .welcome .wizard { min-height: 100vh; }
 }
+
+/* Grouped settings inside a card (e.g. page numbers in Appearance) */
+.subfields { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px 10px; margin: 12px 0 0; }
+.subfields legend { font-size: 12px; font-weight: 700; color: var(--muted); padding: 0 4px; }
+.subfields > .check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 2px 0 8px; }
+.subfields .hint.wide { grid-column: 1 / -1; margin: 2px 0 0; }

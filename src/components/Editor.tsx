@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { Analysis } from '../music/analyze';
 import { countPulses, tidyNotes } from '../music/format';
 import { DYNAMIC_MARKS, JUMP_MARKS, TEMPO_MARKS, addMark, classify, marksForBar, removeMark } from '../music/marks';
-import { DEFAULT_STYLE, type PartDoc, type ScoreDoc, type SheetStyle, type TextBlock, type VoiceType } from '../music/types';
+import { DEFAULT_PAGE_NUMBERS, DEFAULT_STYLE, type PageNumberStyle, type PagePosition, type PartDoc, type ScoreDoc, type SheetStyle, type TextBlock, type VoiceType } from '../music/types';
 import { newId } from '../storage';
 import { FONTS } from './Rich';
 
@@ -174,6 +174,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           <label className="check"><input type="checkbox" checked={style.notesBold} onChange={e => setStyle({ notesBold: e.target.checked })} />Bold notes</label>
           <label className="check"><input type="checkbox" checked={style.lyricsItalic} onChange={e => setStyle({ lyricsItalic: e.target.checked })} />Italic lyrics</label>
         </div>
+        <PageNumbersFields value={{ ...DEFAULT_PAGE_NUMBERS, ...style.pageNumbers }} onChange={pn => setStyle({ pageNumbers: pn })} />
       </section>
 
       <section className="card">
@@ -379,6 +380,58 @@ function BlocksCard({ score, selectedBar, barCount, onChange }: {
           data-tip="A block of text after the music (change its position afterwards)">+ Text block</button>
       </div>
     </section>
+  );
+}
+
+const POSITIONS: [PagePosition, string][] = [
+  ['top-left', 'Top left'], ['top-center', 'Top centre'], ['top-right', 'Top right'],
+  ['bottom-left', 'Bottom left'], ['bottom-center', 'Bottom centre'], ['bottom-right', 'Bottom right'],
+];
+
+/** Page-number options for printing and PDFs. */
+function PageNumbersFields({ value: p, onChange }: { value: PageNumberStyle; onChange: (p: PageNumberStyle) => void }) {
+  const set = (patch: Partial<PageNumberStyle>) => onChange({ ...p, ...patch });
+  const sample = (n: number) => p.format === 'page-of' ? (p.start === 1 ? `Page ${n} of 3` : `Page ${n}`)
+    : p.format === 'page' ? `Page ${n}` : p.format === 'dashes' ? `– ${n} –` : String(n);
+  const first = p.skipFirst ? '(none)' : sample(p.start);
+  return (
+    <fieldset className="subfields">
+      <legend>Page numbers <span className="hint">(printing and PDF)</span></legend>
+      <label className="check"><input type="checkbox" checked={p.show} onChange={e => set({ show: e.target.checked })} />Show page numbers</label>
+      {p.show && (
+        <div className="fields">
+          <label>Position
+            <select value={p.position} onChange={e => set({ position: e.target.value as PagePosition })}>
+              {POSITIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+          <label>Format
+            <select value={p.format} onChange={e => set({ format: e.target.value as PageNumberStyle['format'] })}>
+              <option value="page-of">Page 1 of 3</option>
+              <option value="page">Page 1</option>
+              <option value="number">1</option>
+              <option value="dashes">– 1 –</option>
+            </select>
+          </label>
+          <label>Font
+            <select value={p.font} onChange={e => set({ font: e.target.value })}>
+              <option value="music">Same as the music</option>
+              {Object.entries(FONTS).map(([k, f]) => <option key={k} value={k}>{f.label}</option>)}
+            </select>
+          </label>
+          <label>Size (pt)<input type="number" min={6} max={16} value={p.size} onChange={e => set({ size: Math.min(16, Math.max(6, Number(e.target.value) || 8)) })} /></label>
+          <label className="check"><input type="checkbox" checked={p.weight === 'bold'} onChange={e => set({ weight: e.target.checked ? 'bold' : 'normal' })} />Bold</label>
+          <label className="check"><input type="checkbox" checked={p.italic} onChange={e => set({ italic: e.target.checked })} />Italic</label>
+          <label>First page is number<input type="number" min={0} max={999} value={p.start} onChange={e => set({ start: Math.max(0, Math.round(Number(e.target.value) || 0)) })} /></label>
+          <label className="check"><input type="checkbox" checked={p.skipFirst} onChange={e => set({ skipFirst: e.target.checked })} />No number on the first page</label>
+          <p className="hint wide">
+            Preview: page 1 shows <b>{first}</b>, page 2 shows <b>{sample(p.start + 1)}</b>.
+            {p.format === 'page-of' && p.start !== 1 && ' The total (“of 3”) is left out when counting doesn’t start at 1.'}
+            {p.position === 'bottom-right' && ' The Statos credit moves to the bottom left.'}
+          </p>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
