@@ -254,7 +254,7 @@ Check imported music against the original: chords inside one voice become a sing
 
 - **Save** downloads a \`.statos.json\` file: keep it as a backup, or send it to someone, who can open it with **Import**.
 - **Undo** ↶ and **Redo** ↷ (or [[Ctrl]]+[[Z]] / [[Ctrl]]+[[Y]]) step through your changes.
-- **Print** prints just the music, with page numbers and a small Statos credit at the bottom of each page. Choose *Save as PDF* in the print window to make a PDF.
+- **Print** prints just the music, with page numbers and a small Statos credit at the bottom of each page. On screen, a dashed strip under the sheet shows where they will be printed. Choose *Save as PDF* in the print window to make a PDF.
 - **Appearance → Page numbers** sets where the number goes (top or bottom; left, centre or right), its format (*Page 1 of 3*, *Page 1*, *1*, *– 1 –*), font, size, bold and italic, the number the first page gets, and whether the first page (e.g. a title page) has no number.
 - **More** has *Duplicate* and *Delete*.
 

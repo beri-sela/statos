@@ -6,6 +6,7 @@ import { lyricsByBar } from '../music/edit';
 import { jumpSymbol, type Mark } from '../music/marks';
 import { displayKey, mediumAccents, parseKey } from '../music/solfa';
 import { DEFAULT_STYLE, TICKS, type Articulation, type Issue, type Item, type Pulse, type ScoreDoc } from '../music/types';
+import { PageMarginPreview } from './PrintStyle';
 import { Rich, fontCss } from './Rich';
 
 const MINOR_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
@@ -118,6 +119,7 @@ export function SolfaView(props: Props) {
   return (
     <SheetCtx.Provider value={{ ...props, inputRef, barCount, lyricLines, severityByBar, pulsesAt, timeAt }}>
       <div ref={host} className={`solfa-sheet layout-${style.layout}${style.separateRows ? ' rows-apart' : ''}${style.lyricsItalic ? ' lyr-italic' : ''}${style.notesBold ? '' : ' notes-light'}`} style={sheetVars}>
+        <PageMarginPreview score={score} edge="top" />
         <header className="sheet-head">
           <h1><Rich text={score.title || 'Untitled'} /></h1>
           {score.subtitle && <div className="sheet-sub"><Rich text={score.subtitle} /></div>}
@@ -128,6 +130,7 @@ export function SolfaView(props: Props) {
         </header>
         {blocks}
         {score.footer && <footer className="sheet-foot"><Rich text={score.footer} /></footer>}
+        <PageMarginPreview score={score} edge="bottom" />
         {cursor && <KeyRow />}
         <p className="sheet-tip">Click a note to edit it. <kbd>Space</kbd>/<kbd>Tab</kbd> next pulse, <kbd>↑</kbd><kbd>↓</kbd> other parts, <kbd>Ctrl</kbd>+<kbd>L</kbd> lyrics, <kbd>Esc</kbd> done.</p>
       </div>

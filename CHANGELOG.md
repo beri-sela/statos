@@ -2,6 +2,11 @@
 
 All notable changes to Statos. Versions follow [semantic versioning](https://semver.org/).
 
+## [0.1.2] — 2026-10-31
+
+### Added
+- The page number and the Statos credit are now also shown on screen, in a strip above or below the sheet where they will be printed, so it's clear they are there before printing.
+
 ## [0.1.1] — 2026-10-31
 
 ### Added
@@ -27,5 +32,6 @@ First release.
 - Welcome wizard, Help page with lessons, About, Privacy and Terms pages, phone layout.
 - Offline single-file download (`Statos-v0.1.0-offline.zip`).
 
+[0.1.2]: https://github.com/beri-sela/statos/releases/tag/v0.1.2
 [0.1.1]: https://github.com/beri-sela/statos/releases/tag/v0.1.1
 [0.1.0]: https://github.com/beri-sela/statos/releases/tag/v0.1.0
